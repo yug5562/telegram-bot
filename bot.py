@@ -1,272 +1,307 @@
 import telebot
-import requests
-import random
-import urllib.parse
-import threading
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaVideo, InputMediaPhoto
+import json
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 
-TOKEN = "8619415332:AAH5T5JW2ffE2Ut-fqnbEW0eOihSvEAzkKk"
+TOKEN = "8646122873:AAEWA9nISI4WO9W6NIPLDkJ1H5PEjS43UW8"
+ADMIN_ID = 940631725
+
 bot = telebot.TeleBot(TOKEN)
 
-user_orders = {}
-used_orders = set()  # ✅ FIX
+premium_channel = "https://t.me/+A_WqvGYW64kzMGM1"
+demo_channel = "https://t.me/+Pjf9kjog2Y81Njg1"
+how_channel = "https://t.me/+Pjf9kjog2Y81Njg1"
 
-plans = {
-    "plan1": {"name": "R@P Videos", "price": "99", "link": "https://t.me/+xjrUu9DY2-g3Njll"},
-    "plan2": {"name": "Child Videos (50K+)", "price": "149", "link": "https://t.me/+GX_kLFooS_UyNjdl"},
-    "plan3": {"name": "All in One (50 Groups)", "price": "249", "link": "https://t.me/+SU9im5bsLZozODg1"}
-}
+waiting_screenshot = {}
+waiting_qr = False
 
-demo_videos = [
-    "BAACAgUAAxkBAAMkadS8phVxKxUtmJQ4kuLXDu1DuBIAAmAhAAKE06lWgs4sanWVVEA7BA",
-    "BAACAgUAAxkBAAMwadS-rz_FkHn5Dsd5YZQ9IvxsOJAAAnQhAAKE06lWwsYhNgyJvXA7BA",
-    "BAACAgUAAxkBAAMyadS-uqVpPgizUcGpNeKy2mK3bgUAAnYhAAKE06lWbKsvsXZt5kY7BA",
-    "BAACAgUAAxkBAAM0adS-vzcwfFe6UwJZ7t23GY1xyokAAnchAAKE06lWOKnU0-KfdcI7BA",
-    "BAACAgUAAxkBAAM2adS-0qFCsLomd57XAAGE1pN0X6esAAJ5IQAChNOpVuPO3f0KOI1pOwQ",
-    "BAACAgUAAxkBAAM4adS-4C3t9qGRGkO8-0kP-aSwoAcAAnwhAAKE06lWqqdih3__4O87BA"
-]
+DB_FILE = "database.json"
 
+
+# DATABASE
+def load_db():
+    try:
+        with open(DB_FILE,"r") as f:
+            return json.load(f)
+    except:
+        return {"users":[]}
+
+
+def save_db(data):
+    with open(DB_FILE,"w") as f:
+        json.dump(data,f)
+
+
+db = load_db()
+users = set(db["users"])
+
+
+def save_user(uid):
+    if uid not in users:
+        users.add(uid)
+        db["users"] = list(users)
+        save_db(db)
+
+
+# TEXT
+start_text = """
+𝐕𝐢𝐝𝐞𝐨 𝐂𝐡𝐚𝐧𝐧𝐞𝐥 🌸
+
+𝐅𝐨𝐫 𝐃𝐞𝐬𝐢 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 𝐋𝐨𝐯𝐞𝐫𝐬 😋
+
+𝐍𝐨 𝐒𝐧#𝐩, 𝐏𝐮𝐫𝐞 𝐃𝐞𝐬𝐢 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 😙
+
+𝐫𝐚𝐫𝐞 𝐃𝐞𝐬𝐢 𝐥𝐞#𝐤𝐬 𝐞𝐯𝐞𝐫.... 🎀
+
+𝐉𝐮𝐬𝐭 𝐩𝐚𝐲 𝐚𝐧𝐝 𝐠𝐞𝐭 𝐞𝐧𝐭𝐫𝐲...
+
+𝐍𝐨 - 𝐀𝐝𝐬 𝐒𝐡#𝐭 🔥
+
+𝐏𝐫𝐢𝐜𝐞 :- ₹𝟗𝟗.𝟎𝟎/-
+
+𝐕𝐚𝐥𝐢𝐝𝐢𝐭𝐲 :- 𝐥𝐢𝐟𝐞𝐭𝐢𝐦𝐞
+"""
+
+
+payment_text = """
+1️⃣ 𝐒𝐜𝐚𝐧 𝐐𝐑 & 𝐏𝐚𝐲 ₹𝟗𝟗
+2️⃣ 𝐂𝐥𝐢𝐜𝐤 𝐨𝐧 '𝐈 𝐇𝐀𝐕𝐄 𝐏𝐀𝐈𝐃' 𝐛𝐮𝐭𝐭𝐨𝐧 𝐛𝐞𝐥𝐨𝐰 👇
+"""
+
+
+# START
 @bot.message_handler(commands=['start'])
 def start(message):
-    text = """🎬 𝐀𝐯𝐚𝐢𝐥𝐚𝐛𝐥𝐞 𝐕𝐢𝐝𝐞𝐨𝐬 𝐂𝐨𝐥𝐥𝐞𝐜𝐭𝐢𝐨𝐧
 
-𝟏. 𝐌𝐨𝐦 𝐒𝐨𝐧 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟓𝟎𝟎𝟎+
+    save_user(message.from_user.id)
 
-𝟐. 𝐒𝐢𝐬𝐭𝐞𝐫 𝐁𝐫𝐨𝐭𝐡𝐞𝐫 𝐯𝐢𝐝𝐞𝐨𝐬 -𝟐𝟎𝟎𝟎+
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("💎 Get Premium",callback_data="buy"))
+    markup.add(InlineKeyboardButton("🎬 Premium Demo",url=demo_channel))
+    markup.add(InlineKeyboardButton("📖 How To Get Premium",url=how_channel))
 
-𝟑. 𝐂𝐩 𝐤𝐢𝐝𝐬 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟏𝟓𝟎𝟎𝟎+
-
-𝟒. 𝐑@𝐩𝐞 & 𝐅𝐨𝐫𝐜𝐞 𝐯𝐢𝐝𝐞𝐨𝐬-𝟑𝟎𝟎𝟎+
-
-𝟓. 𝐓𝐞𝐞𝐧 𝐆𝐢𝐫𝐥. 𝐕𝐢𝐝𝐞𝐨𝐬 - 𝟔𝟎𝟎𝟎+
-
-𝟔. 𝐈𝐧𝐝𝐢𝐚𝐧 𝐝𝐞𝐬𝐢 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟏𝟎𝟎𝟎𝟎+
-
-𝟕. 𝐇𝐢𝐝𝐝𝐞𝐧 𝐜𝐚𝐦 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟐𝟎𝟎𝟎+
-
-"""
-
-    markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        InlineKeyboardButton("💎 Get Premium", callback_data="get_premium"),
-        InlineKeyboardButton("🥵 Demo Videos", callback_data="demo"),
-        InlineKeyboardButton("📖 How To Get Premium", url="https://t.me/+-heSylYPn5pmYWE1")
+    bot.send_photo(
+        message.chat.id,
+        open("start.jpg","rb"),
+        caption=start_text,
+        reply_markup=markup
     )
 
-    photo = open("start.jpg", "rb")
-    bot.send_photo(message.chat.id, photo, caption=text, reply_markup=markup)
+
+# USERS
+@bot.message_handler(commands=['users'])
+def users_count(message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    bot.reply_to(message,f"👥 Total Users: {len(users)}")
 
 
+# BROADCAST
+@bot.message_handler(commands=['broadcast'])
+def broadcast(message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+        text = message.text.split(" ",1)[1]
+    except:
+        bot.reply_to(message,"Usage:\n/broadcast your message")
+        return
+
+    for user in users:
+        try:
+            bot.send_message(user,text)
+        except:
+            pass
+
+    bot.reply_to(message,"✅ Broadcast Sent")
+
+
+# SET DEMO
+@bot.message_handler(commands=['setdemo'])
+def set_demo(message):
+
+    global demo_channel
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+        demo_channel = message.text.split(" ")[1]
+        bot.reply_to(message,"✅ Demo channel updated")
+    except:
+        bot.reply_to(message,"Usage:\n/setdemo https://t.me/channel")
+
+
+# SET HOW
+@bot.message_handler(commands=['sethow'])
+def set_how(message):
+
+    global how_channel
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+        how_channel = message.text.split(" ")[1]
+        bot.reply_to(message,"✅ How channel updated")
+    except:
+        bot.reply_to(message,"Usage:\n/sethow https://t.me/channel")
+
+
+# SET PREMIUM
+@bot.message_handler(commands=['setpremium'])
+def set_premium(message):
+
+    global premium_channel
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+        premium_channel = message.text.split(" ")[1]
+        bot.reply_to(message,"✅ Premium channel updated")
+    except:
+        bot.reply_to(message,"Usage:\n/setpremium https://t.me/channel")
+
+
+# SET QR
+@bot.message_handler(commands=['setqr'])
+def set_qr(message):
+
+    global waiting_qr
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    waiting_qr = True
+    bot.reply_to(message,"📷 Send new QR image")
+
+
+# QR UPDATE
+@bot.message_handler(content_types=['photo'])
+def photo_handler(message):
+
+    global waiting_qr
+
+    uid = message.from_user.id
+
+    # QR UPDATE (ADMIN)
+    if waiting_qr and uid == ADMIN_ID:
+
+        file_info = bot.get_file(message.photo[-1].file_id)
+        downloaded = bot.download_file(file_info.file_path)
+
+        with open("qr.jpg","wb") as f:
+            f.write(downloaded)
+
+        waiting_qr = False
+
+        bot.reply_to(message,"✅ QR updated successfully")
+        return
+
+
+    # SCREENSHOT VERIFICATION
+    if uid not in waiting_screenshot:
+
+        bot.reply_to(
+            message,
+            "⚠️𝐓𝐇𝐈𝐒 𝐈𝐒 𝐍𝐎𝐓 𝐂𝐎𝐑𝐑𝐄𝐂𝐓 𝐒𝐄𝐋𝐄𝐂𝐓𝐈𝐎𝐍 🥲\n𝐏𝐋𝐄𝐀𝐒𝐄, 𝐒𝐄𝐋𝐄𝐂𝐓 𝐅𝐑𝐎𝐌 𝐎𝐏𝐓𝐈𝐎𝐍𝐒✅"
+        )
+        return
+
+
+    waiting_screenshot.pop(uid)
+
+    username = message.from_user.username or "NoUsername"
+
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("✅ Approve",callback_data="approve_"+str(uid)),
+        InlineKeyboardButton("❌ Reject",callback_data="reject_"+str(uid))
+    )
+
+    bot.send_photo(
+        ADMIN_ID,
+        message.photo[-1].file_id,
+        caption=f"Payment Screenshot\n\nUser: @{username}\nID: {uid}",
+        reply_markup=markup
+    )
+
+    bot.reply_to(message,"⏳ Screenshot sent for verification")
+
+
+# BUTTONS
 @bot.callback_query_handler(func=lambda call: True)
-def callback(call):
+def buttons(call):
 
-    if call.data == "demo":
-        index = 0
+    uid = call.from_user.id
 
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(InlineKeyboardButton("👉 Next", callback_data=f"next_{index}"))
-        markup.add(
-            InlineKeyboardButton("💎 Get Premium", callback_data="get_premium"),
-            InlineKeyboardButton("🔙 Back", callback_data="back_start")
+    if call.data == "buy":
+
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("✅ I HAVE PAID",callback_data="paid"))
+        markup.add(InlineKeyboardButton("❌ Cancel",callback_data="back"))
+
+        media = InputMediaPhoto(
+            open("qr.jpg","rb"),
+            caption=payment_text
         )
 
-        msg = bot.send_video(
+        bot.edit_message_media(
+            media,
             call.message.chat.id,
-            demo_videos[index],
-            caption=f"🔞 Demo Video {index+1}",
-            reply_markup=markup,
-            supports_streaming=True
-        )
-
-        def delete_msg():
-            try:
-                bot.delete_message(call.message.chat.id, msg.message_id)
-            except:
-                pass
-
-        threading.Timer(120, delete_msg).start()
-
-    elif call.data.startswith("next_") or call.data.startswith("prev_"):
-        data = call.data.split("_")
-        action = data[0]
-        index = int(data[1])
-
-        if action == "next":
-            if index < len(demo_videos) - 1:
-                index += 1
-        else:
-            if index > 0:
-                index -= 1
-
-        markup = InlineKeyboardMarkup(row_width=2)
-
-        buttons = []
-        if index > 0:
-            buttons.append(InlineKeyboardButton("👉 Previous", callback_data=f"prev_{index}"))
-        if index < len(demo_videos) - 1:
-            buttons.append(InlineKeyboardButton("👉 Next", callback_data=f"next_{index}"))
-
-        if buttons:
-            markup.add(*buttons)
-
-        markup.add(
-            InlineKeyboardButton("💎 Get Premium", callback_data="get_premium"),
-            InlineKeyboardButton("🔙 Back", callback_data="back_start")
-        )
-
-        bot.edit_message_media(
-            media=InputMediaVideo(
-                demo_videos[index],
-                caption=f"🔞 Demo Video {index+1}",
-                supports_streaming=True
-            ),
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
+            call.message.message_id,
             reply_markup=markup
         )
 
-        def delete_msg():
-            try:
-                bot.delete_message(call.message.chat.id, call.message.message_id)
-            except:
-                pass
 
-        threading.Timer(120, delete_msg).start()
+    elif call.data == "paid":
 
-    elif call.data == "get_premium":
-        markup = InlineKeyboardMarkup(row_width=1)
-        markup.add(
-            InlineKeyboardButton("👉 R@P Videos - ₹99", callback_data="buy_plan1"),
-            InlineKeyboardButton("👉 Child Videos - ₹149", callback_data="buy_plan2"),
-            InlineKeyboardButton("👉 All in One (50 Groups) - ₹249", callback_data="buy_plan3"),
-            InlineKeyboardButton("🔙 Back", callback_data="back_start")
+        waiting_screenshot[uid] = True
+        bot.send_message(uid,"📸 Please send your payment screenshot now.")
+
+
+    elif call.data == "back":
+
+        bot.delete_message(call.message.chat.id,call.message.message_id)
+        start(call.message)
+
+
+    elif call.data.startswith("approve_"):
+
+        uid = int(call.data.split("_")[1])
+
+        bot.send_message(
+            uid,
+            "✅ Payment Verified!\n\nJoin your private channel:\n"+premium_channel
         )
 
-        bot.edit_message_media(
-            media=InputMediaPhoto(
-                open("plans.jpg", "rb"),
-                caption="🔥 Choose Your Plan:"
-            ),
+        bot.edit_message_caption(
+            caption="✅ Payment Approved",
             chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=markup
+            message_id=call.message.message_id
         )
 
-    elif call.data.startswith("buy_"):
-        plan_key = call.data.split("_")[1]
-        plan = plans.get(plan_key)
+        bot.answer_callback_query(call.id,"Approved",show_alert=True)
 
-        if not plan:
-            bot.send_message(call.message.chat.id, "❌ Plan not found")
-            return
 
-        user_orders[call.from_user.id] = plan_key
+    elif call.data.startswith("reject_"):
 
-        upi = "paytm.s1zssxv@pty"
-        amount = plan["price"]
-        name = "paikarma"
+        uid = int(call.data.split("_")[1])
 
-        upi_encoded = urllib.parse.quote(upi)
-        name_encoded = urllib.parse.quote(name)
+        bot.send_message(uid,"❌ Payment Rejected")
 
-        url = f"https://paytm.anujbots.xyz/qr.php?upi={upi_encoded}&amount={amount}&name={name_encoded}"
-
-        res = requests.get(url).json()
-
-        if res.get("success"):
-            qr = res.get("qr_url")
-            orderid = res.get("order_id")
-
-            if not orderid:
-                bot.send_message(call.message.chat.id, "❌ Order ID not received")
-                return
-
-            user_orders[str(call.from_user.id)+"_order"] = orderid
-
-            markup = InlineKeyboardMarkup(row_width=1)
-            markup.add(
-                InlineKeyboardButton("✅ GET PRIVATE CHANNEL LINK ", callback_data="verify"),
-                InlineKeyboardButton("🔙 Back", callback_data="get_premium")
-            )
-
-            bot.edit_message_media(
-                media=InputMediaPhoto(
-                    qr,
-                    caption=f"💰 Plan: {plan['name']}\n💵 Amount: ₹{amount}\n🆔 Order ID: {orderid}"
-                ),
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                reply_markup=markup
-            )
-
-    elif call.data == "verify":
-        orderid = user_orders.get(str(call.from_user.id)+"_order")
-
-        if not orderid:
-            bot.send_message(call.message.chat.id, "❌ No order found")
-            return
-
-        merchantid = "aFpena57399629842621"
-        merchantkey = "aFpena57399629842621"
-
-        url = f"https://paytm.anujbots.xyz/verify.php?orderid={orderid}&merchantid={merchantid}&merchantkey={merchantkey}"
-
-        res = requests.get(url).json()
-
-        if res.get("success") and res.get("status") == "TXN_SUCCESS":
-
-            if orderid in used_orders:
-                bot.send_message(call.message.chat.id, "⚠️ You have already received access")
-                return
-
-            used_orders.add(orderid)
-
-            amount = res.get("amount")
-
-            plan_key = user_orders.get(call.from_user.id)
-            plan = plans.get(plan_key)
-            link = plan["link"]
-
-            bot.send_message(
-                call.message.chat.id,
-                f"✅ Payment Successful\n\n💰 Amount: ₹{amount}\n🔓 Access Granted\n\n🔗 {link}"
-            )
-        else:
-            bot.send_message(call.message.chat.id, "🚫 Payment not completed yet")
-
-    elif call.data == "back_start":
-        markup = InlineKeyboardMarkup(row_width=1)
-        markup.add(
-            InlineKeyboardButton("💎 Get Premium", callback_data="get_premium"),
-            InlineKeyboardButton("🥵 Demo Videos", callback_data="demo"),
-            InlineKeyboardButton("📖 How To Get Premium", url="https://t.me/+-heSylYPn5pmYWE1")
-        )
-
-        bot.edit_message_media(
-            media=InputMediaPhoto(
-                open("start.jpg", "rb"),
-                caption="""🎬 𝐀𝐯𝐚𝐢𝐥𝐚𝐛𝐥𝐞 𝐕𝐢𝐝𝐞𝐨𝐬 𝐂𝐨𝐥𝐥𝐞𝐜𝐭𝐢𝐨𝐧
-
-𝟏. 𝐌𝐨𝐦 𝐒𝐨𝐧 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟓𝟎𝟎𝟎+
-
-𝟐. 𝐒𝐢𝐬𝐭𝐞𝐫 𝐁𝐫𝐨𝐭𝐡𝐞𝐫 𝐯𝐢𝐝𝐞𝐨𝐬 -𝟐𝟎𝟎𝟎+
-
-𝟑. 𝐂𝐩 𝐤𝐢𝐝𝐬 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟏𝟓𝟎𝟎𝟎+
-
-𝟒. 𝐑@𝐩𝐞 & 𝐅𝐨𝐫𝐜𝐞 𝐯𝐢𝐝𝐞𝐨𝐬-𝟑𝟎𝟎𝟎+
-
-𝟓. 𝐓𝐞𝐞𝐧 𝐆𝐢𝐫𝐥. 𝐕𝐢𝐝𝐞𝐨𝐬 - 𝟔𝟎𝟎𝟎+
-
-𝟔. 𝐈𝐧𝐝𝐢𝐚𝐧 𝐝𝐞𝐬𝐢 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟏𝟎𝟎𝟎𝟎+
-
-𝟕. 𝐇𝐢𝐝𝐝𝐞𝐧 𝐜𝐚𝐦 𝐯𝐢𝐝𝐞𝐨𝐬 - 𝟐𝟎𝟎𝟎+
-
-"""
-            ),
+        bot.edit_message_caption(
+            caption="❌ Payment Rejected",
             chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=markup
+            message_id=call.message.message_id
         )
 
-print("Bot running...")
-bot.infinity_polling()
+        bot.answer_callback_query(call.id,"Rejected",show_alert=True)
+
+
+print("Bot Running...")
+bot.infinity_polling(skip_pending=True)
